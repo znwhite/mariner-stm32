@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
+
 #include <string.h>
 #include <stdio.h>
 #include "stm32f4xx_hal_uart.h"
