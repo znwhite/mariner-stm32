@@ -41,6 +41,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
 /* Definitions for blink01 */
@@ -57,6 +58,13 @@ const osThreadAttr_t motorTest01_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityAboveNormal,
 };
+/* Definitions for servoTest01 */
+osThreadId_t servoTest01Handle;
+const osThreadAttr_t servoTest01_attributes = {
+  .name = "servoTest01",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -65,8 +73,10 @@ const osThreadAttr_t motorTest01_attributes = {
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_TIM2_Init(void);
 void StartBlink01(void *argument);
 void StartMotorTest01(void *argument);
+void StartServoTest01(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -107,6 +117,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM3_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -136,6 +147,9 @@ int main(void)
 
   /* creation of motorTest01 */
   motorTest01Handle = osThreadNew(StartMotorTest01, NULL, &motorTest01_attributes);
+
+  /* creation of servoTest01 */
+  servoTest01Handle = osThreadNew(StartServoTest01, NULL, &servoTest01_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -206,6 +220,55 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 1679;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
 }
 
 /**
@@ -368,6 +431,38 @@ void StartMotorTest01(void *argument)
   }
   /* USER CODE END StartMotorTest01 */
 }
+
+/* USER CODE BEGIN Header_StartServoTest01 */
+/**
+* @brief Function implementing the servoTest01 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartServoTest01 */
+void StartServoTest01(void *argument)
+{
+    /* USER CODE BEGIN StartServoTest01 */
+
+    // Start the PWM for servo
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+
+    uint32_t positions[] = {50, 75, 100}; // 0°, 90°, 180°
+    uint8_t pos_index = 0;
+
+    /* Infinite loop */
+    for(;;)
+    {
+        // Set servo to current position
+        __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, positions[pos_index]);
+
+        // Move to next position
+        pos_index = (pos_index + 1) % 3; // Cycle through 0, 1, 2
+
+        osDelay(30000); // 30 seconds = 30,000ms
+    }
+    /* USER CODE END StartServoTest01 */
+}
+
 /**
   * @brief  Period elapsed callback in non blocking mode
   * @note   This function is called  when TIM6 interrupt took place, inside
