@@ -257,7 +257,7 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 150;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
@@ -442,23 +442,41 @@ void StartMotorTest01(void *argument)
 void StartServoTest01(void *argument)
 {
     /* USER CODE BEGIN StartServoTest01 */
+	/*
+	REMEMBER: still needs to share GND with STM32 to get clean signals.
+	Hint:This means two wires connecting to the OUT- of the buck converter.
+	*/
 
     // Start the PWM for servo
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
 
-    uint32_t positions[] = {50, 75, 100}; // 0°, 90°, 180°
-    uint8_t pos_index = 0;
+    // Position values
+    uint32_t center = 75;
+    uint32_t right = 125;
+    uint32_t left = 25;
 
-    /* Infinite loop */
+    // Start at center
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, center);
+    osDelay(2000); // Initial center hold
+
+    /* Infinite loop: Center → Right → Center → Left */
     for(;;)
     {
-        // Set servo to current position
-        __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, positions[pos_index]);
+        // Go to center
+        __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, center);
+        osDelay(3000);
 
-        // Move to next position
-        pos_index = (pos_index + 1) % 3; // Cycle through 0, 1, 2
+        // Go to right
+        __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, right);
+        osDelay(3000);
 
-        osDelay(30000); // 30 seconds = 30,000ms
+        // Return to center
+        __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, center);
+        osDelay(3000);
+
+        // Go to left
+        __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, left);
+        osDelay(3000);
     }
     /* USER CODE END StartServoTest01 */
 }
