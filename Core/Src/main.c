@@ -75,8 +75,19 @@ const osThreadAttr_t oledDisplay01_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for imuTask01 */
+osThreadId_t imuTask01Handle;
+const osThreadAttr_t imuTask01_attributes = {
+  .name = "imuTask01",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 /* USER CODE BEGIN PV */
-
+volatile float current_heading = 0.0f;
+volatile bool imu_connected = false;
+volatile uint8_t battery_percentage = 85;  // Placeholder
+volatile float battery_voltage = 12.4f;    // Placeholder
+volatile uint32_t system_uptime = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,6 +100,7 @@ void StartBlink01(void *argument);
 void StartMotorTest01(void *argument);
 void StartServoTest01(void *argument);
 void StartOledDisplay01(void *argument);
+void StartImuTask01(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -166,6 +178,9 @@ int main(void)
 
   /* creation of oledDisplay01 */
   oledDisplay01Handle = osThreadNew(StartOledDisplay01, NULL, &oledDisplay01_attributes);
+
+  /* creation of imuTask01 */
+  imuTask01Handle = osThreadNew(StartImuTask01, NULL, &imuTask01_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -548,27 +563,73 @@ void StartOledDisplay01(void *argument)
   // Initialize the OLED display
   SSD1306_Init();
 
-  // Counter for seconds
-  uint32_t seconds = 0;
-
   /* Infinite loop */
   for(;;)
   {
     // Clear the display
     SSD1306_Clear();
 
-    // Show seconds count
-    SSD1306_Printf(5, 5, "%lu seconds", seconds);
+    // Line 1: System uptime
+    SSD1306_Printf(5, 5, "Uptime: %lu s", system_uptime);
+
+    // Line 2: IMU status and heading
+    if(imu_connected) {
+      SSD1306_Printf(5, 15, "IMU: OK HDG:%.1f", current_heading);
+    } else {
+      SSD1306_Printf(5, 15, "IMU: Disconnected");
+    }
+
+    // Line 3: Battery status (placeholder)
+    SSD1306_Printf(5, 25, "BAT: %d%% %.1fV", battery_percentage, battery_voltage);
 
     // Update the display
     SSD1306_UpdateScreen();
 
-    // Increment counter and wait 1 second
-    seconds++;
+    // Increment uptime and wait 1 second
+    system_uptime++;
     osDelay(1000);
   }
   /* USER CODE END StartOledDisplay01 */
 }
+/* USER CODE BEGIN Header_StartImuTask01 */
+/**
+* @brief Function implementing the imuTask01 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartImuTask01 */
+void StartImuTask01(void *argument)
+{
+  /* USER CODE BEGIN StartImuTask01 */
+
+  // Wait for system stabilization
+  osDelay(1000);
+
+  uint8_t chip_id = 0;
+
+  /* Infinite loop */
+  for(;;)
+  {
+    // Try to read BNO055 chip ID (should be 0xA0)
+    if(HAL_I2C_Mem_Read(&hi2c1, 0x28 << 1, 0x00, 1, &chip_id, 1, 1000) == HAL_OK) {
+      if(chip_id == 0xA0) {
+        imu_connected = true;
+        // For now, just set a test heading value
+        // Later we'll read actual sensor data
+        current_heading = 123.4f;  // Test value
+      } else {
+        imu_connected = false;
+      }
+    } else {
+      imu_connected = false;
+    }
+
+    // Check IMU every 500ms
+    osDelay(500);
+  }
+  /* USER CODE END StartImuTask01 */
+}
+
 /**
   * @brief  Period elapsed callback in non blocking mode
   * @note   This function is called  when TIM6 interrupt took place, inside
