@@ -22,6 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "ssd1306.h"
 
 /* USER CODE END Includes */
 
@@ -41,6 +42,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
+
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
@@ -65,6 +68,13 @@ const osThreadAttr_t servoTest01_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for oledDisplay01 */
+osThreadId_t oledDisplay01Handle;
+const osThreadAttr_t oledDisplay01_attributes = {
+  .name = "oledDisplay01",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -74,9 +84,11 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_I2C1_Init(void);
 void StartBlink01(void *argument);
 void StartMotorTest01(void *argument);
 void StartServoTest01(void *argument);
+void StartOledDisplay01(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -118,6 +130,7 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM3_Init();
   MX_TIM2_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -150,6 +163,9 @@ int main(void)
 
   /* creation of servoTest01 */
   servoTest01Handle = osThreadNew(StartServoTest01, NULL, &servoTest01_attributes);
+
+  /* creation of oledDisplay01 */
+  oledDisplay01Handle = osThreadNew(StartOledDisplay01, NULL, &oledDisplay01_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -220,6 +236,40 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
 }
 
 /**
@@ -441,7 +491,7 @@ void StartMotorTest01(void *argument)
 /* USER CODE END Header_StartServoTest01 */
 void StartServoTest01(void *argument)
 {
-    /* USER CODE BEGIN StartServoTest01 */
+  /* USER CODE BEGIN StartServoTest01 */
 	/*
 	REMEMBER: still needs to share GND with STM32 to get clean signals.
 	Hint:This means two wires connecting to the OUT- of the buck converter.
@@ -478,9 +528,47 @@ void StartServoTest01(void *argument)
         __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, left);
         osDelay(3000);
     }
-    /* USER CODE END StartServoTest01 */
+  /* USER CODE END StartServoTest01 */
 }
 
+/* USER CODE BEGIN Header_StartOledDisplay01 */
+/**
+* @brief Function implementing the oledDisplay01 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartOledDisplay01 */
+void StartOledDisplay01(void *argument)
+{
+  /* USER CODE BEGIN StartOledDisplay01 */
+
+  // Wait for system to stabilize
+  osDelay(1000);
+
+  // Initialize the OLED display
+  SSD1306_Init();
+
+  // Counter for seconds
+  uint32_t seconds = 0;
+
+  /* Infinite loop */
+  for(;;)
+  {
+    // Clear the display
+    SSD1306_Clear();
+
+    // Show seconds count
+    SSD1306_Printf(5, 5, "%lu seconds", seconds);
+
+    // Update the display
+    SSD1306_UpdateScreen();
+
+    // Increment counter and wait 1 second
+    seconds++;
+    osDelay(1000);
+  }
+  /* USER CODE END StartOledDisplay01 */
+}
 /**
   * @brief  Period elapsed callback in non blocking mode
   * @note   This function is called  when TIM6 interrupt took place, inside
